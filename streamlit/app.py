@@ -57,14 +57,23 @@ st.markdown("""
     /* Header Card */
     .header-card {
         background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-        color: white;
+        color: #ffffff !important;
         padding: 2.5rem;
         border-radius: 16px;
         margin-bottom: 2rem;
         box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
     }
+    div[data-testid="stMarkdownContainer"] .header-card h1,
+    div[data-testid="stMarkdownContainer"] .header-card p,
+    div[data-testid="stMarkdownContainer"] .header-card b,
+    div[data-testid="stMarkdownContainer"] .header-card span,
+    .header-card h1,
+    .header-card p,
+    .header-card b,
+    .header-card span {
+        color: #ffffff !important;
+    }
     .header-card h1 {
-        color: white !important;
         font-weight: 800;
         margin-bottom: 0.5rem;
         font-size: 2.2rem;
@@ -96,10 +105,10 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    .status-normal   { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-    .status-warning  { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-    .status-danger   { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .status-info     { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .status-normal   { background-color: #d1fae5; color: #065f46 !important; border: 1px solid #a7f3d0; }
+    .status-warning  { background-color: #fef3c7; color: #92400e !important; border: 1px solid #fde68a; }
+    .status-danger   { background-color: #fee2e2; color: #991b1b !important; border: 1px solid #fca5a5; }
+    .status-info     { background-color: #e0f2fe; color: #0369a1 !important; border: 1px solid #bae6fd; }
     
     /* Tables */
     .modern-table {
@@ -311,32 +320,80 @@ def train_models(df_raw):
     return model_bb, model_tb, df_clean
 
 # ─── Custom Styles for Premium Cards ──────────────────────────────────────────
-def make_metric_card(title, value, unit, delta, delta_color):
+def make_metric_card(title, value, unit, delta, delta_color, icon_type="weight", z_score=0.0):
     color_map = {
-        "green": "#10b981",
+        "green": "#22c55e",
         "red": "#ef4444",
         "orange": "#f59e0b",
-        "neutral": "#6b7280"
+        "neutral": "#64748b"
     }
-    col = color_map.get(delta_color, "#6b7280")
+    col = color_map.get(delta_color, "#64748b")
     
+    # Calculate progress bar percentage (Z-score from -3 to +3 mapped to 0-100%)
+    z_score = 0.0 if z_score is None else float(z_score)
+    percent = (z_score + 3) / 6 * 100
+    percent = max(10.0, min(100.0, percent)) # clamp between 10% and 100% for visual aesthetics
+    
+    if icon_type == "weight":
+        icon_bg = "#e0f2fe"
+        icon_svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="2" ry="2"></rect>
+            <path d="M12 2v9M8 5h8"></path>
+        </svg>
+        """
+        bar_color = "#22c55e" # Green progress bar for weight
+    else:
+        icon_bg = "#fce7f3"
+        icon_svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#db2777" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 3h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2z"></path>
+            <path d="M3 7h3M3 12h5M3 17h3"></path>
+        </svg>
+        """
+        bar_color = "#7c3aed" # Purple/violet progress bar for height
+
     return f"""
     <div style="
         background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-        border: 1px solid #e2e8f0;
-        border-top: 4px solid {col};
-        text-align: center;
-        margin-bottom: 15px;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 20px;
     ">
-        <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">{title}</div>
-        <div style="font-size: 30px; font-weight: 700; color: #1e293b; line-height: 1.2;">
-            {value} <span style="font-size: 15px; font-weight: 500; color: #64748b;">{unit}</span>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="
+                width: 52px;
+                height: 52px;
+                border-radius: 12px;
+                background-color: {icon_bg};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            ">
+                {icon_svg}
+            </div>
+            <div style="display: flex; flex-direction: column; text-align: left;">
+                <div style="font-size: 14px; color: #64748b; font-weight: 500; line-height: 1.2;">{title}</div>
+                <div style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; display: flex; align-items: baseline; gap: 8px;">
+                    {value} <span style="font-size: 16px; font-weight: 500; color: #64748b;">{unit}</span>
+                    <span style="font-size: 14px; font-weight: 600; color: {col};">({delta})</span>
+                </div>
+            </div>
         </div>
-        <div style="font-size: 13px; font-weight: 600; color: {col}; margin-top: 8px;">
-            {delta}
+        <div style="
+            background-color: #f1f5f9;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 16px;
+            width: 100%;
+        ">
+            <div style="background-color: {bar_color}; width: {percent}%; height: 100%; border-radius: 3px;"></div>
         </div>
     </div>
     """
@@ -396,67 +453,213 @@ def get_recommendation_card(status_now, status_pred):
     """
 
 # ─── Plotly Visualizations ───────────────────────────────────────────────────
-def plot_growth_chart(tables, table_type, sex_str, history_df, current_age, current_val, pred_age, pred_val, val_name, unit):
+def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, curr_val, pred_umur_list, pred_val_list, val_name, unit, limit_months):
     table_name = _pilih_tabel(table_type, sex_str)
     fig = go.Figure()
-    ages = list(range(0, 61))
     
-    z_scores = [
-        (-3, "Sangat Kurang (-3 SD)" if table_type == "BBU" else "Sangat Pendek (-3 SD)", "#ef4444", "dot"),
-        (-2, "Kurang (-2 SD)" if table_type == "BBU" else "Pendek (-2 SD)", "#f59e0b", "dash"),
-        (0, "Median (0 SD)", "#10b981", "solid"),
-        (2, "Lebih (+2 SD)" if table_type == "BBU" else "Tinggi (+2 SD)", "#3b82f6", "dash"),
-    ]
-    
-    for z_val, label, color, dash_style in z_scores:
-        xs, ys = get_z_curve(tables, table_name, z_val, ages)
-        fig.add_trace(go.Scatter(
-            x=xs, y=ys, 
-            mode='lines', 
-            name=label, 
-            line=dict(color=color, width=1.5, dash=dash_style),
-            hoverinfo='skip'
-        ))
-    
-    # Plot historical data
+    # Process history
     if history_df is not None and len(history_df) > 0:
-        fig.add_trace(go.Scatter(
-            x=history_df["umur"], 
-            y=history_df[val_name],
-            mode='lines+markers',
-            name="Riwayat Timbang",
-            line=dict(color="#4f46e5", width=2.5),
-            marker=dict(size=6, color="#4f46e5")
-        ))
+        df_sorted = history_df.sort_values("umur")
+        df_hist = df_sorted[df_sorted["umur"] <= curr_umur].copy()
+        if limit_months is not None:
+            df_hist = df_hist.tail(limit_months)
+    else:
+        df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
+        
+    # Ensure current point is accurately represented
+    if df_hist["umur"].iloc[-1] == curr_umur:
+        df_hist.iloc[-1, df_hist.columns.get_loc(val_name)] = curr_val
+    else:
+        new_row = df_hist.iloc[-1].copy()
+        new_row["umur"] = curr_umur
+        new_row[val_name] = curr_val
+        df_hist = pd.concat([df_hist, pd.DataFrame([new_row])], ignore_index=True)
+        
+    # Combine history and prediction
+    x_comb = list(df_hist["umur"]) + pred_umur_list
+    y_comb = list(df_hist[val_name]) + pred_val_list
     
-    # Plot current point
+    # 1. Background WHO Median reference curve (dotted gray)
+    min_x = min(x_comb)
+    max_x = max(x_comb)
+    ages_ref = list(range(int(min_x), int(max_x) + 1))
+    xs_ref, ys_ref = get_z_curve(tables, table_name, 0.0, ages_ref)
+    
     fig.add_trace(go.Scatter(
-        x=[current_age], y=[current_val],
-        mode='markers',
-        name="Pengukuran Sekarang",
-        marker=dict(size=10, color="#1e293b", symbol="circle")
+        x=xs_ref, y=ys_ref,
+        mode='lines',
+        line=dict(color='#cbd5e1', width=1.5, dash='dot'),
+        name="Rujukan WHO (Median)",
+        hoverinfo='skip'
     ))
     
-    # Plot prediction point
+    # 2. Main child curve (spline with filled area)
+    line_color = '#2e7d32' if val_name == 'BB' else '#7c3aed'
+    fill_color = 'rgba(46, 125, 80, 0.08)' if val_name == 'BB' else 'rgba(124, 92, 237, 0.08)'
+    
     fig.add_trace(go.Scatter(
-        x=[pred_age], y=[pred_val],
-        mode='markers+text',
-        name="Prediksi Bulan Depan",
-        marker=dict(size=14, color="#ef4444", symbol="star"),
-        text=[f"  {pred_val:.2f} {unit}"],
-        textposition="middle right",
-        textfont=dict(weight="bold", color="#ef4444")
+        x=x_comb, y=y_comb,
+        mode='lines+markers',
+        line=dict(color=line_color, width=3.5, shape='spline'),
+        fill='tozeroy',
+        fillcolor=fill_color,
+        marker=dict(
+            size=[8]*(len(x_comb) - 1) + [10],
+            color=[line_color]*(len(x_comb) - 1) + ['#ef4444'], # Make prediction point stand out in red
+            symbol=['circle']*(len(x_comb) - 1) + ['star']
+        ),
+        name="Tren Pertumbuhan"
     ))
     
-    title_lbl = "Kurva Berat Badan menurut Umur (BB/U)" if table_type == "BBU" else "Kurva Tinggi Badan menurut Umur (TB/U)"
+    # 3. Add text annotations for "Hari Ini" and "Prediksi (+3 Bln)"
+    fig.add_annotation(
+        x=curr_umur,
+        y=curr_val,
+        text="Hari Ini",
+        showarrow=True,
+        arrowhead=2,
+        ax=0,
+        ay=-35,
+        font=dict(size=11, color="#1e293b", weight="bold"),
+        arrowcolor="#64748b"
+    )
+    
+    fig.add_annotation(
+        x=pred_umur_list[-1],
+        y=pred_val_list[-1],
+        text="Prediksi (+3 Bln)",
+        showarrow=True,
+        arrowhead=2,
+        ax=0,
+        ay=-35,
+        font=dict(size=11, color=line_color, weight="bold"),
+        arrowcolor="#64748b"
+    )
+    
+    # 4. Custom x-axis tick labels
+    tickvals = x_comb
+    ticktext = []
+    for age in df_hist["umur"]:
+        if age == curr_umur:
+            ticktext.append("Sekarang")
+        elif age == curr_umur - 1:
+            ticktext.append("Bulan Lalu")
+        else:
+            ticktext.append(f"U-{int(curr_umur - age)} Bln")
+            
+    for i, p_age in enumerate(pred_umur_list):
+        if i == len(pred_umur_list) - 1:
+            ticktext.append("Target +3 Bln")
+        else:
+            ticktext.append(f"Bulan +{i+1}")
+            
+    title_lbl = f"Tren Pertumbuhan Berat Badan ({unit})" if val_name == "BB" else f"Tren Pertumbuhan Tinggi Badan ({unit})"
+    
     fig.update_layout(
-        title=dict(text=title_lbl, font=dict(size=15, color="#1e293b")),
-        xaxis=dict(title="Umur (bulan)", range=[0, 60], gridcolor="#e2e8f0"),
-        yaxis=dict(title=f"{table_type.replace('BBU','Berat').replace('PBU','Tinggi')} ({unit})", gridcolor="#e2e8f0"),
+        title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
+        xaxis=dict(
+            tickmode='array',
+            tickvals=tickvals,
+            ticktext=ticktext,
+            gridcolor="#e2e8f0",
+            showgrid=True
+        ),
+        yaxis=dict(
+            title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+            gridcolor="#e2e8f0",
+            showgrid=True
+        ),
         plot_bgcolor="white",
         paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+        height=380,
+        showlegend=False,
+        hovermode="x unified"
+    )
+    
+    return fig
+
+def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, curr_val, pred_umur_list, pred_val_list, val_name, unit):
+    table_name = _pilih_tabel(table_type, sex_str)
+    fig = go.Figure()
+    
+    # Process history
+    if history_df is not None and len(history_df) > 0:
+        df_sorted = history_df.sort_values("umur")
+        df_hist = df_sorted[df_sorted["umur"] <= curr_umur].copy()
+    else:
+        df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
+        
+    # Combine history and prediction
+    x_comb = list(df_hist["umur"]) + pred_umur_list
+    y_comb = list(df_hist[val_name]) + pred_val_list
+    
+    # Define zoom bounds for age (X-axis)
+    min_age = min(x_comb)
+    max_age = max(x_comb)
+    start_age = max(0, int(min_age) - 2)
+    end_age = min(60, int(max_age) + 2)
+    
+    ages_kms = list(range(start_age, end_age + 1))
+    
+    # Plot the 7 Z-Score curves
+    z_scores_config = [
+        (-3, "-3 SD", "#800000", "dash"),
+        (-2, "-2 SD", "#dc2626", "dash"),
+        (-1, "-1 SD", "#eab308", "dash"),
+        (0, "Median", "#22c55e", "solid"),
+        (1, "+1 SD", "#eab308", "dash"),
+        (2, "+2 SD", "#dc2626", "dash"),
+        (3, "+3 SD", "#800000", "dash")
+    ]
+    
+    for z_val, label, color, line_dash in z_scores_config:
+        xs, ys = get_z_curve(tables, table_name, z_val, ages_kms)
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys,
+            mode='lines',
+            name=label,
+            line=dict(color=color, width=1.5, dash=line_dash),
+            hoverinfo='skip'
+        ))
+        
+    # Plot "Anak Anda" curve (history + predictions) in blue
+    fig.add_trace(go.Scatter(
+        x=x_comb, y=y_comb,
+        mode='lines+markers',
+        name="Anak Anda",
+        line=dict(color="#2563eb", width=3),
+        marker=dict(size=8, color="#2563eb", symbol="circle")
+    ))
+    
+    title_lbl = f"Kurva Z-Score WHO: Berat Badan ({unit})" if val_name == "BB" else f"Kurva Z-Score WHO: Tinggi Badan ({unit})"
+    
+    fig.update_layout(
+        title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
+        xaxis=dict(
+            title="Umur (bulan)",
+            range=[start_age, end_age],
+            dtick=1,
+            gridcolor="#e2e8f0",
+            showgrid=True
+        ),
+        yaxis=dict(
+            title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+            gridcolor="#e2e8f0",
+            showgrid=True
+        ),
+        plot_bgcolor="white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=40, r=40, t=50, b=70), # extra bottom margin for horizontal legend
+        height=380,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
         hovermode="x unified"
     )
     
@@ -642,10 +845,40 @@ if not predict_btn:
 # ══════════════════════════════════════════════════════════════════════════════
 # PREDIKSI & Z-SCORE
 # ══════════════════════════════════════════════════════════════════════════════
-sample_data = prepare_input(umur, sex, bb, tb, bb_prev, tb_prev)
+name_str = f"Arka" if "Cari dari Riwayat" in mode_input and selected_id == 11 else (f"Anak ID {selected_id}" if "Cari dari Riwayat" in mode_input else "Anak Baru")
 
-bb_pred = float(model_bb.predict(sample_data)[0])
-tb_pred = float(model_tb.predict(sample_data)[0])
+# Multi-step recursive forecasting for +3 months
+bb_pred_list = []
+tb_pred_list = []
+umur_pred_list = []
+
+# Bulan +1
+sample_1 = prepare_input(umur, sex, bb, tb, bb_prev, tb_prev)
+bb_p1 = float(model_bb.predict(sample_1)[0])
+tb_p1 = float(model_tb.predict(sample_1)[0])
+bb_pred_list.append(bb_p1)
+tb_pred_list.append(tb_p1)
+umur_pred_list.append(umur + 1)
+
+# Bulan +2
+sample_2 = prepare_input(umur + 1, sex, bb_p1, tb_p1, bb, tb)
+bb_p2 = float(model_bb.predict(sample_2)[0])
+tb_p2 = float(model_tb.predict(sample_2)[0])
+bb_pred_list.append(bb_p2)
+tb_pred_list.append(tb_p2)
+umur_pred_list.append(umur + 2)
+
+# Bulan +3
+sample_3 = prepare_input(umur + 2, sex, bb_p2, tb_p2, bb_p1, tb_p1)
+bb_p3 = float(model_bb.predict(sample_3)[0])
+tb_p3 = float(model_tb.predict(sample_3)[0])
+bb_pred_list.append(bb_p3)
+tb_pred_list.append(tb_p3)
+umur_pred_list.append(umur + 3)
+
+# For compatibility and single-month references
+bb_pred = bb_p1
+tb_pred = tb_p1
 umur_pred = umur + 1
 
 # Z-score saat ini
@@ -653,64 +886,154 @@ z_bbu_s  = zscore_BB_U(who_tables, bb, umur, sex_str)
 z_tbu_s  = zscore_TB_U(who_tables, tb, umur, sex_str)
 z_bbtb_s = zscore_BB_TB(who_tables, bb, tb, umur, sex_str)
 
-# Z-score prediksi
+# Z-score prediksi +1 bulan (for tables)
 z_bbu_p  = zscore_BB_U(who_tables, bb_pred, umur_pred, sex_str)
 z_tbu_p  = zscore_TB_U(who_tables, tb_pred, umur_pred, sex_str)
 z_bbtb_p = zscore_BB_TB(who_tables, bb_pred, tb_pred, umur_pred, sex_str)
 
-# Status gizi
+# Z-score prediksi +3 bulan (for metric cards)
+z_bbu_p3  = zscore_BB_U(who_tables, bb_p3, umur + 3, sex_str)
+z_tbu_p3  = zscore_TB_U(who_tables, tb_p3, umur + 3, sex_str)
+
+# Status gizi saat ini
 st_bbu_s,  cl_bbu_s  = status_BB_U(z_bbu_s)
 st_tbu_s,  cl_tbu_s  = status_TB_U(z_tbu_s)
 st_bbtb_s, cl_bbtb_s = status_BB_TB(z_bbtb_s)
 
+# Status gizi prediksi +1 bulan
 st_bbu_p,  cl_bbu_p  = status_BB_U(z_bbu_p)
 st_tbu_p,  cl_tbu_p  = status_TB_U(z_tbu_p)
 st_bbtb_p, cl_bbtb_p = status_BB_TB(z_bbtb_p)
 
+# Status gizi prediksi +3 bulan
+st_bbu_p3,  cl_bbu_p3  = status_BB_U(z_bbu_p3)
+st_tbu_p3,  cl_tbu_p3  = status_TB_U(z_tbu_p3)
+st_bbtb_p3, cl_bbtb_p3 = status_BB_TB(zscore_BB_TB(who_tables, bb_p3, tb_p3, umur + 3, sex_str))
+
+# Dynamically determine the badge for outlook
+if cl_bbu_p3 == "danger" or cl_tbu_p3 == "danger" or cl_bbtb_p3 == "danger":
+    badge_style = "danger"
+    badge_text = "RISIKO TINGGI"
+elif cl_bbu_p3 == "warning" or cl_tbu_p3 == "warning" or cl_bbtb_p3 == "warning":
+    badge_style = "warning"
+    badge_text = "PERINGATAN"
+else:
+    badge_style = "normal"
+    badge_text = "OPTIMAL"
+badge_outlook = badge(badge_text, badge_style)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # HASIL — Metric cards
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">📊 Hasil Pengukuran & Prediksi</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📊 Hasil Pengukuran & Prediksi Target +3 Bulan</div>', unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.markdown(make_metric_card(
-        "⏱ Umur Anak",
-        f"{umur}", "bulan",
-        f"Prediksi bulan depan: {umur_pred} bln",
-        "neutral"
-    ), unsafe_allow_html=True)
-
-with c2:
-    delta_bb = bb_pred - bb
+mc1, mc2 = st.columns(2)
+with mc1:
+    delta_bb = bb_p3 - bb
     c_bb = "green" if delta_bb > 0 else ("red" if delta_bb < 0 else "neutral")
+    delta_sign = "+" if delta_bb > 0 else ""
     st.markdown(make_metric_card(
-        "⚖️ BB Sekarang → Prediksi +1 Bln",
-        f"{bb:.2f}", "kg",
-        f"{delta_bb:+.2f} kg → {bb_pred:.2f} kg bulan depan",
-        c_bb
+        title="Prediksi Berat Badan",
+        value=f"{bb_p3:.1f}",
+        unit="Kg",
+        delta=f"{delta_sign}{delta_bb:.1f} Kg",
+        delta_color=c_bb,
+        icon_type="weight",
+        z_score=z_bbu_p3
     ), unsafe_allow_html=True)
 
-with c3:
-    delta_tb = tb_pred - tb
+with mc2:
+    delta_tb = tb_p3 - tb
     c_tb = "green" if delta_tb > 0 else ("red" if delta_tb < 0 else "neutral")
+    delta_sign = "+" if delta_tb > 0 else ""
     st.markdown(make_metric_card(
-        "📏 TB Sekarang → Prediksi +1 Bln",
-        f"{tb:.2f}", "cm",
-        f"{delta_tb:+.2f} cm → {tb_pred:.2f} cm bulan depan",
-        c_tb
+        title="Prediksi Tinggi Badan",
+        value=f"{tb_p3:.1f}",
+        unit="Cm",
+        delta=f"{delta_sign}{delta_tb:.1f} Cm",
+        delta_color=c_tb,
+        icon_type="height",
+        z_score=z_tbu_p3
     ), unsafe_allow_html=True)
 
 # ── Visualisasi Kurva Pertumbuhan ──────────────────────────────────────────────
-st.markdown('<div class="section-header">📈 Kurva Pertumbuhan Anak (Standard WHO)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">📈 Kurva Pertumbuhan & Outlook Pertumbuhan Anak</div>', unsafe_allow_html=True)
+
+# Add horizontal period filter at the top of the chart section
+time_range = st.radio(
+    "Filter Periode Riwayat Tren:",
+    options=["3 Bulan", "6 Bulan", "12 Bulan", "Semua"],
+    index=1, # Default to 6 Bulan as in user screenshot
+    horizontal=True
+)
+
+limit_map = {
+    "3 Bulan": 3,
+    "6 Bulan": 6,
+    "12 Bulan": 12,
+    "Semua": None
+}
+limit_val = limit_map[time_range]
 
 chart_col1, chart_col2 = st.columns(2)
+
 with chart_col1:
-    fig_bb = plot_growth_chart(who_tables, "BBU", sex_str, history_df, umur, bb, umur_pred, bb_pred, "BB", "kg")
-    st.plotly_chart(fig_bb, use_container_width=True)
+    tab_trend, tab_kms = st.tabs(["📈 Tren Pertumbuhan", "🩺 Kurva Z-Score (KMS)"])
+    with tab_trend:
+        # Display header like in Image 4
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
+            <div>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan 3 Bulan</h4>
+                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
+            </div>
+            <div>
+                {badge_outlook}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        fig_bb = plot_growth_chart_trend(
+            who_tables, "BBU", sex_str, history_df, 
+            umur, bb, umur_pred_list, bb_pred_list, "BB", "kg", limit_val
+        )
+        st.plotly_chart(fig_bb, use_container_width=True)
+        
+    with tab_kms:
+        fig_bb_kms = plot_growth_chart_kms(
+            who_tables, "BBU", sex_str, history_df,
+            umur, bb, umur_pred_list, bb_pred_list, "BB", "kg"
+        )
+        st.plotly_chart(fig_bb_kms, use_container_width=True)
+
 with chart_col2:
-    fig_tb = plot_growth_chart(who_tables, "PBU", sex_str, history_df, umur, tb, umur_pred, tb_pred, "TB", "cm")
-    st.plotly_chart(fig_tb, use_container_width=True)
+    tab_trend, tab_kms = st.tabs(["📈 Tren Pertumbuhan", "🩺 Kurva Z-Score (KMS)"])
+    with tab_trend:
+        # Display header like in Image 4
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
+            <div>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan 3 Bulan</h4>
+                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
+            </div>
+            <div>
+                {badge_outlook}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        fig_tb = plot_growth_chart_trend(
+            who_tables, "PBU", sex_str, history_df,
+            umur, tb, umur_pred_list, tb_pred_list, "TB", "cm", limit_val
+        )
+        st.plotly_chart(fig_tb, use_container_width=True)
+        
+    with tab_kms:
+        fig_tb_kms = plot_growth_chart_kms(
+            who_tables, "PBU", sex_str, history_df,
+            umur, tb, umur_pred_list, tb_pred_list, "TB", "cm"
+        )
+        st.plotly_chart(fig_tb_kms, use_container_width=True)
 
 # ── Tabel Z-score & Status Gizi ───────────────────────────────────────────────
 st.markdown('<div class="section-header">🩺 Status Gizi (WHO Z-Score)</div>', unsafe_allow_html=True)
