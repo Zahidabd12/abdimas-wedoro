@@ -441,6 +441,9 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         if limit_months is not None:
             df_hist = df_hist.tail(limit_months)
     else:
+        df_hist = pd.DataFrame()
+        
+    if df_hist.empty:
         df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
         
     # Ensure current point is accurately represented
@@ -573,6 +576,9 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
         df_sorted = history_df.sort_values("umur")
         df_hist = df_sorted[df_sorted["umur"] <= curr_umur].copy()
     else:
+        df_hist = pd.DataFrame()
+        
+    if df_hist.empty:
         df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
         
     # Combine history and prediction
