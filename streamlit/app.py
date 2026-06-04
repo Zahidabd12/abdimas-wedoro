@@ -835,10 +835,35 @@ else:
 
 sex_str = "L" if sex == 1 else "P"
 
+# Persist analysis state and reset on profile input changes
+if "analyze_triggered" not in st.session_state:
+    st.session_state.analyze_triggered = False
+
+current_input_sig = (
+    mode_input,
+    selected_id if "Cari dari Riwayat" in mode_input else None,
+    umur,
+    sex,
+    bb,
+    tb,
+    bb_prev,
+    tb_prev
+)
+
+if "last_input_sig" not in st.session_state:
+    st.session_state.last_input_sig = current_input_sig
+
+if st.session_state.last_input_sig != current_input_sig:
+    st.session_state.analyze_triggered = False
+    st.session_state.last_input_sig = current_input_sig
+
 st.divider()
 predict_btn = st.button("🔮 ANALISIS & HITUNG PREDIKSI", type="primary", use_container_width=True)
 
-if not predict_btn:
+if predict_btn:
+    st.session_state.analyze_triggered = True
+
+if not st.session_state.analyze_triggered:
     st.info("💡 Klik tombol **ANALISIS & HITUNG PREDIKSI** di atas untuk melihat status gizi dan prediksi kurva pertumbuhan.")
     st.stop()
 
