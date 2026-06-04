@@ -24,13 +24,34 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
     
-    /* Force dark text for widget labels and description text on the light background to avoid white-on-white text in dark mode */
+    /* 1. Global dark text override for main content area (light background) */
     div[data-testid="stMarkdownContainer"] p, 
     div[data-testid="stMarkdownContainer"] span, 
     div[data-testid="stRadio"] label p, 
     div[data-testid="stCheckbox"] label p, 
     label[data-testid="stWidgetLabel"] p {
         color: #1e293b !important;
+    }
+    
+    /* 2. Specific sidebar light text overrides to override global rules for the dark sidebar background */
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p, 
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] span, 
+    section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p,
+    section[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] p,
+    section[data-testid="stSidebar"] .stCaption p,
+    section[data-testid="stSidebar"] small {
+        color: #cbd5e1 !important;
+    }
+    
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3, 
+    section[data-testid="stSidebar"] h4 {
+        color: #ffffff !important;
+    }
+    
+    section[data-testid="stSidebar"] div[role="alert"] * {
+        color: #ffffff !important;
     }
     
     /* Header Card */
