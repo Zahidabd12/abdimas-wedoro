@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+temp/
+.ipynb_checkpoints/
+.streamlit/
+*.log
+
+# Sensitive clinical datasets
+trial_2025.csv
+trial_2026.csv
+ASP 2025.xlsx
+ASP 2026.xlsx
