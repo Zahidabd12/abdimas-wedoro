@@ -512,31 +512,31 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     fig.add_annotation(
         x=f"{int(curr_umur)} Bln (Sekarang)",
         y=curr_val,
-        text="Hari Ini",
+        text="<b>Hari Ini</b>",
         showarrow=True,
         arrowhead=2,
         ax=0,
         ay=-35,
-        font=dict(size=11, color="#1e293b", weight="bold"),
+        font=dict(size=11, color="#1e293b"),
         arrowcolor="#64748b"
     )
     
     fig.add_annotation(
         x=f"{int(pred_umur_list[-1])} Bln (+3 Bln)",
         y=pred_val_list[-1],
-        text="Prediksi (+3 Bln)",
+        text="<b>Prediksi (+3 Bln)</b>",
         showarrow=True,
         arrowhead=2,
         ax=0,
         ay=-35,
-        font=dict(size=11, color=line_color, weight="bold"),
+        font=dict(size=11, color=line_color),
         arrowcolor="#64748b"
     )
     
     title_lbl = f"Tren Pertumbuhan Berat Badan ({unit})" if val_name == "BB" else f"Tren Pertumbuhan Tinggi Badan ({unit})"
     
     fig.update_layout(
-        title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
+        title=dict(text=f"<b>{title_lbl}</b>", font=dict(size=14, color="#1e293b")),
         xaxis=dict(
             type='category',
             gridcolor="#e2e8f0",
@@ -618,7 +618,7 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
     title_lbl = f"Kurva Z-Score WHO: Berat Badan ({unit})" if val_name == "BB" else f"Kurva Z-Score WHO: Tinggi Badan ({unit})"
     
     fig.update_layout(
-        title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
+        title=dict(text=f"<b>{title_lbl}</b>", font=dict(size=14, color="#1e293b")),
         xaxis=dict(
             title="Umur (bulan)",
             titlefont=dict(color="#1e293b", size=11),
