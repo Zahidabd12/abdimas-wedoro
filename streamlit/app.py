@@ -353,50 +353,27 @@ def make_metric_card(title, value, unit, delta, delta_color, icon_type="weight",
         """
         bar_color = "#7c3aed" # Purple/violet progress bar for height
 
-    return f"""
-    <div style="
-        background: white;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-        border: 1px solid #f1f5f9;
-        display: flex;
-        flex-direction: column;
-        margin-bottom: 20px;
-    ">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            <div style="
-                width: 52px;
-                height: 52px;
-                border-radius: 12px;
-                background-color: {icon_bg};
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-shrink: 0;
-            ">
-                {icon_svg}
-            </div>
-            <div style="display: flex; flex-direction: column; text-align: left;">
-                <div style="font-size: 14px; color: #64748b; font-weight: 500; line-height: 1.2;">{title}</div>
-                <div style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; display: flex; align-items: baseline; gap: 8px;">
-                    {value} <span style="font-size: 16px; font-weight: 500; color: #64748b;">{unit}</span>
-                    <span style="font-size: 14px; font-weight: 600; color: {col};">({delta})</span>
-                </div>
-            </div>
-        </div>
-        <div style="
-            background-color: #f1f5f9;
-            height: 6px;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 16px;
-            width: 100%;
-        ">
-            <div style="background-color: {bar_color}; width: {percent}%; height: 100%; border-radius: 3px;"></div>
-        </div>
-    </div>
-    """
+    html_content = f"""
+<div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column; margin-bottom: 20px;">
+<div style="display: flex; align-items: center; gap: 16px;">
+<div style="width: 52px; height: 52px; border-radius: 12px; background-color: {icon_bg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+{icon_svg}
+</div>
+<div style="display: flex; flex-direction: column; text-align: left;">
+<div style="font-size: 14px; color: #64748b; font-weight: 500; line-height: 1.2;">{title}</div>
+<div style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; display: flex; align-items: baseline; gap: 8px;">
+{value} <span style="font-size: 16px; font-weight: 500; color: #64748b;">{unit}</span>
+<span style="font-size: 14px; font-weight: 600; color: {col};">({delta})</span>
+</div>
+</div>
+</div>
+<div style="background-color: #f1f5f9; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 16px; width: 100%;">
+<div style="background-color: {bar_color}; width: {percent}%; height: 100%; border-radius: 3px;"></div>
+</div>
+</div>
+"""
+    cleaned_html = "\n".join([line.strip() for line in html_content.split("\n") if line.strip()])
+    return cleaned_html
 
 def get_recommendation_card(status_now, status_pred):
     st_bbu, st_tbu, st_bbtb = status_now
@@ -476,68 +453,10 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         df_hist = pd.concat([df_hist, pd.DataFrame([new_row])], ignore_index=True)
         
     # Combine history and prediction
-    x_comb = list(df_hist["umur"]) + pred_umur_list
+    x_comb_ages = list(df_hist["umur"]) + pred_umur_list
     y_comb = list(df_hist[val_name]) + pred_val_list
     
-    # 1. Background WHO Median reference curve (dotted gray)
-    min_x = min(x_comb)
-    max_x = max(x_comb)
-    ages_ref = list(range(int(min_x), int(max_x) + 1))
-    xs_ref, ys_ref = get_z_curve(tables, table_name, 0.0, ages_ref)
-    
-    fig.add_trace(go.Scatter(
-        x=xs_ref, y=ys_ref,
-        mode='lines',
-        line=dict(color='#cbd5e1', width=1.5, dash='dot'),
-        name="Rujukan WHO (Median)",
-        hoverinfo='skip'
-    ))
-    
-    # 2. Main child curve (spline with filled area)
-    line_color = '#2e7d32' if val_name == 'BB' else '#7c3aed'
-    fill_color = 'rgba(46, 125, 80, 0.08)' if val_name == 'BB' else 'rgba(124, 92, 237, 0.08)'
-    
-    fig.add_trace(go.Scatter(
-        x=x_comb, y=y_comb,
-        mode='lines+markers',
-        line=dict(color=line_color, width=3.5, shape='spline'),
-        fill='tozeroy',
-        fillcolor=fill_color,
-        marker=dict(
-            size=[8]*(len(x_comb) - 1) + [10],
-            color=[line_color]*(len(x_comb) - 1) + ['#ef4444'], # Make prediction point stand out in red
-            symbol=['circle']*(len(x_comb) - 1) + ['star']
-        ),
-        name="Tren Pertumbuhan"
-    ))
-    
-    # 3. Add text annotations for "Hari Ini" and "Prediksi (+3 Bln)"
-    fig.add_annotation(
-        x=curr_umur,
-        y=curr_val,
-        text="Hari Ini",
-        showarrow=True,
-        arrowhead=2,
-        ax=0,
-        ay=-35,
-        font=dict(size=11, color="#1e293b", weight="bold"),
-        arrowcolor="#64748b"
-    )
-    
-    fig.add_annotation(
-        x=pred_umur_list[-1],
-        y=pred_val_list[-1],
-        text="Prediksi (+3 Bln)",
-        showarrow=True,
-        arrowhead=2,
-        ax=0,
-        ay=-35,
-        font=dict(size=11, color=line_color, weight="bold"),
-        arrowcolor="#64748b"
-    )
-    
-    # 4. Custom x-axis tick labels
-    tickvals = x_comb
+    # Custom x-axis tick labels
     ticktext = []
     for age in df_hist["umur"]:
         if age == curr_umur:
@@ -553,14 +472,73 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         else:
             ticktext.append(f"Bulan +{i+1}")
             
+    # Calculate WHO Median values corresponding to the exact ages in x_comb_ages
+    ys_ref = []
+    for age in x_comb_ages:
+        lms = get_lms(tables, table_name, age)
+        if lms is not None:
+            ys_ref.append(lms[1]) # LMS M (Median) value
+        else:
+            ys_ref.append(None)
+            
+    # 1. Background WHO Median reference curve (dotted gray)
+    fig.add_trace(go.Scatter(
+        x=ticktext, y=ys_ref,
+        mode='lines',
+        line=dict(color='#cbd5e1', width=1.5, dash='dot'),
+        name="Rujukan WHO (Median)",
+        hoverinfo='skip'
+    ))
+    
+    # 2. Main child curve (spline with filled area)
+    line_color = '#2e7d32' if val_name == 'BB' else '#7c3aed'
+    fill_color = 'rgba(46, 125, 80, 0.08)' if val_name == 'BB' else 'rgba(124, 92, 237, 0.08)'
+    
+    fig.add_trace(go.Scatter(
+        x=ticktext, y=y_comb,
+        mode='lines+markers',
+        line=dict(color=line_color, width=3.5, shape='spline'),
+        fill='tozeroy',
+        fillcolor=fill_color,
+        marker=dict(
+            size=[8]*(len(y_comb) - 1) + [10],
+            color=[line_color]*(len(y_comb) - 1) + ['#ef4444'], # Make prediction point stand out in red
+            symbol=['circle']*(len(y_comb) - 1) + ['star']
+        ),
+        name="Tren Pertumbuhan"
+    ))
+    
+    # 3. Add text annotations for "Hari Ini" and "Prediksi (+3 Bln)" using category string coordinates
+    fig.add_annotation(
+        x="Sekarang",
+        y=curr_val,
+        text="Hari Ini",
+        showarrow=True,
+        arrowhead=2,
+        ax=0,
+        ay=-35,
+        font=dict(size=11, color="#1e293b", weight="bold"),
+        arrowcolor="#64748b"
+    )
+    
+    fig.add_annotation(
+        x="Target +3 Bln",
+        y=pred_val_list[-1],
+        text="Prediksi (+3 Bln)",
+        showarrow=True,
+        arrowhead=2,
+        ax=0,
+        ay=-35,
+        font=dict(size=11, color=line_color, weight="bold"),
+        arrowcolor="#64748b"
+    )
+    
     title_lbl = f"Tren Pertumbuhan Berat Badan ({unit})" if val_name == "BB" else f"Tren Pertumbuhan Tinggi Badan ({unit})"
     
     fig.update_layout(
         title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
         xaxis=dict(
-            tickmode='array',
-            tickvals=tickvals,
-            ticktext=ticktext,
+            type='category',
             gridcolor="#e2e8f0",
             showgrid=True
         ),
