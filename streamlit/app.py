@@ -545,8 +545,10 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
             tickangle=-45
         ),
         yaxis=dict(
-            title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
-            titlefont=dict(color="#1e293b", size=11),
+            title=dict(
+                text=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+                font=dict(color="#1e293b", size=11)
+            ),
             gridcolor="#e2e8f0",
             showgrid=True,
             tickfont=dict(color="#1e293b", size=10)
@@ -620,8 +622,10 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
     fig.update_layout(
         title=dict(text=f"<b>{title_lbl}</b>", font=dict(size=14, color="#1e293b")),
         xaxis=dict(
-            title="Umur (bulan)",
-            titlefont=dict(color="#1e293b", size=11),
+            title=dict(
+                text="Umur (bulan)",
+                font=dict(color="#1e293b", size=11)
+            ),
             range=[start_age, end_age],
             dtick=1,
             gridcolor="#e2e8f0",
@@ -629,8 +633,10 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
             tickfont=dict(color="#1e293b", size=9)
         ),
         yaxis=dict(
-            title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
-            titlefont=dict(color="#1e293b", size=11),
+            title=dict(
+                text=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+                font=dict(color="#1e293b", size=11)
+            ),
             gridcolor="#e2e8f0",
             showgrid=True,
             tickfont=dict(color="#1e293b", size=10)
