@@ -460,17 +460,17 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     ticktext = []
     for age in df_hist["umur"]:
         if age == curr_umur:
-            ticktext.append("Sekarang")
+            ticktext.append(f"{int(age)} Bln (Sekarang)")
         elif age == curr_umur - 1:
-            ticktext.append("Bulan Lalu")
+            ticktext.append(f"{int(age)} Bln (Lalu)")
         else:
-            ticktext.append(f"U-{int(curr_umur - age)} Bln")
+            ticktext.append(f"{int(age)} Bln (U-{int(curr_umur - age)})")
             
     for i, p_age in enumerate(pred_umur_list):
         if i == len(pred_umur_list) - 1:
-            ticktext.append("Target +3 Bln")
+            ticktext.append(f"{int(p_age)} Bln (+3 Bln)")
         else:
-            ticktext.append(f"Bulan +{i+1}")
+            ticktext.append(f"{int(p_age)} Bln (+{i+1} Bln)")
             
     # Calculate WHO Median values corresponding to the exact ages in x_comb_ages
     ys_ref = []
@@ -510,7 +510,7 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     
     # 3. Add text annotations for "Hari Ini" and "Prediksi (+3 Bln)" using category string coordinates
     fig.add_annotation(
-        x="Sekarang",
+        x=f"{int(curr_umur)} Bln (Sekarang)",
         y=curr_val,
         text="Hari Ini",
         showarrow=True,
@@ -522,7 +522,7 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     )
     
     fig.add_annotation(
-        x="Target +3 Bln",
+        x=f"{int(pred_umur_list[-1])} Bln (+3 Bln)",
         y=pred_val_list[-1],
         text="Prediksi (+3 Bln)",
         showarrow=True,
@@ -540,19 +540,24 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         xaxis=dict(
             type='category',
             gridcolor="#e2e8f0",
-            showgrid=True
+            showgrid=True,
+            tickfont=dict(color="#1e293b", size=9),
+            tickangle=-45
         ),
         yaxis=dict(
             title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+            titlefont=dict(color="#1e293b", size=11),
             gridcolor="#e2e8f0",
-            showgrid=True
+            showgrid=True,
+            tickfont=dict(color="#1e293b", size=10)
         ),
         plot_bgcolor="white",
         paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=40, r=40, t=50, b=40),
+        margin=dict(l=40, r=40, t=50, b=65),
         height=380,
         showlegend=False,
-        hovermode="x unified"
+        hovermode="x unified",
+        font=dict(color="#1e293b")
     )
     
     return fig
@@ -616,29 +621,34 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
         title=dict(text=title_lbl, font=dict(size=14, color="#1e293b", weight="bold")),
         xaxis=dict(
             title="Umur (bulan)",
+            titlefont=dict(color="#1e293b", size=11),
             range=[start_age, end_age],
             dtick=1,
             gridcolor="#e2e8f0",
-            showgrid=True
+            showgrid=True,
+            tickfont=dict(color="#1e293b", size=9)
         ),
         yaxis=dict(
             title=f"{'Berat' if val_name == 'BB' else 'Tinggi'} ({unit})",
+            titlefont=dict(color="#1e293b", size=11),
             gridcolor="#e2e8f0",
-            showgrid=True
+            showgrid=True,
+            tickfont=dict(color="#1e293b", size=10)
         ),
         plot_bgcolor="white",
         paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=40, r=40, t=50, b=70), # extra bottom margin for horizontal legend
+        margin=dict(l=40, r=40, t=50, b=80), # extra bottom margin for horizontal legend
         height=380,
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=-0.2,
+            y=-0.22,
             xanchor="center",
             x=0.5,
-            font=dict(size=10)
+            font=dict(size=10, color="#1e293b")
         ),
-        hovermode="x unified"
+        hovermode="x unified",
+        font=dict(color="#1e293b")
     )
     
     return fig
