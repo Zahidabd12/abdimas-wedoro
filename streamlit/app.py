@@ -6,6 +6,7 @@ from xgboost import XGBRegressor
 from sklearn.model_selection import GroupShuffleSplit
 import os
 import plotly.graph_objects as go
+import hashlib
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -154,7 +155,7 @@ TABLE_COL_MAP = {
 }
 
 @st.cache_data
-def load_who_tables(filepath):
+def load_who_tables(filepath, file_hash=None):
     raw = pd.read_excel(filepath, sheet_name="Sheet1", header=None)
     tables = {}
     for name, col_start in TABLE_COL_MAP.items():
@@ -276,7 +277,7 @@ def prepare_input(umur, sex, bb, tb, bb_prev=None, tb_prev=None):
 
 # ─── Train Model ───────────────────────────────────────────────────────────────
 @st.cache_resource
-def train_models(df_raw):
+def train_models(df_raw, df_hash):
     df = df_raw.copy()
     df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
     df = df.dropna(subset=["umur"])
@@ -444,46 +445,57 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     table_name = _pilih_tabel(table_type, sex_str)
     fig = go.Figure()
     
-    # Process history
-    if history_df is not None and len(history_df) > 0:
-        df_sorted = history_df.sort_values("umur")
-        df_hist = df_sorted[df_sorted["umur"] <= curr_umur].copy()
-        if limit_months is not None:
-            df_hist = df_hist.tail(limit_months)
-    else:
-        df_hist = pd.DataFrame()
-        
-    if df_hist.empty:
-        df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
-        
-    # Ensure current point is accurately represented
-    if df_hist["umur"].iloc[-1] == curr_umur:
-        df_hist.iloc[-1, df_hist.columns.get_loc(val_name)] = curr_val
-    else:
-        new_row = df_hist.iloc[-1].copy()
-        new_row["umur"] = curr_umur
-        new_row[val_name] = curr_val
-        df_hist = pd.concat([df_hist, pd.DataFrame([new_row])], ignore_index=True)
-        
-    # Combine history and prediction
-    x_comb_ages = list(df_hist["umur"]) + pred_umur_list
-    y_comb = list(df_hist[val_name]) + pred_val_list
+    # Merge history, current, and predictions into age_map
+    age_map = {}
     
-    # Custom x-axis tick labels
+    # 1. Collect all ages to determine the absolute range (min_age to max_age)
+    all_ages = []
+    if history_df is not None and len(history_df) > 0:
+        all_ages.extend(history_df["umur"].dropna().astype(int).tolist())
+    all_ages.append(int(curr_umur))
+    if pred_umur_list:
+        all_ages.extend([int(a) for a in pred_umur_list])
+        
+    if all_ages:
+        min_age = min(all_ages)
+        max_age = max(all_ages)
+        # Pre-populate all ages in range with 0.0 (empty/0) to ensure chronological category alignment
+        for a in range(min_age, max_age + 1):
+            age_map[a] = (0.0, False)
+            
+    # 2. Fill in actual historical measurements
+    if history_df is not None and len(history_df) > 0:
+        for _, row in history_df.iterrows():
+            a = int(row["umur"])
+            val = float(row[val_name])
+            age_map[a] = (val, False)
+            
+    # 3. Overwrite with current measurement (possibly overridden)
+    age_map[int(curr_umur)] = (float(curr_val), False)
+    
+    # 4. Overwrite with prediction values
+    for p_age, p_val in zip(pred_umur_list, pred_val_list):
+        age_map[int(p_age)] = (float(p_val), True)
+        
+    sorted_ages = sorted(age_map.keys())
+    
+    x_comb_ages = sorted_ages
+    y_comb = [age_map[a][0] for a in sorted_ages]
+    
+    # Generate custom tick labels
     ticktext = []
-    for age in df_hist["umur"]:
+    for age in sorted_ages:
+        _, is_pred = age_map[age]
         if age == curr_umur:
             ticktext.append(f"{int(age)} Bln (Sekarang)")
-        elif age == curr_umur - 1:
-            ticktext.append(f"{int(age)} Bln (Lalu)")
+        elif is_pred:
+            diff = int(age - curr_umur)
+            ticktext.append(f"{int(age)} Bln (+{diff} Bln)")
+        elif age < curr_umur:
+            diff = int(curr_umur - age)
+            ticktext.append(f"{int(age)} Bln (U-{diff})")
         else:
-            ticktext.append(f"{int(age)} Bln (U-{int(curr_umur - age)})")
-            
-    for i, p_age in enumerate(pred_umur_list):
-        if i == len(pred_umur_list) - 1:
-            ticktext.append(f"{int(p_age)} Bln (+{len(pred_umur_list)} Bln)")
-        else:
-            ticktext.append(f"{int(p_age)} Bln (+{i+1} Bln)")
+            ticktext.append(f"{int(age)} Bln")
             
     # Calculate WHO Median values corresponding to the exact ages in x_comb_ages
     ys_ref = []
@@ -507,6 +519,25 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     line_color = '#2e7d32' if val_name == 'BB' else '#7c3aed'
     fill_color = 'rgba(46, 125, 80, 0.08)' if val_name == 'BB' else 'rgba(124, 92, 237, 0.08)'
     
+    # Marker properties
+    marker_sizes = []
+    marker_colors = []
+    marker_symbols = []
+    for age in sorted_ages:
+        _, is_pred = age_map[age]
+        if is_pred:
+            marker_sizes.append(10)
+            marker_colors.append('#ef4444')
+            marker_symbols.append('star')
+        elif age == curr_umur:
+            marker_sizes.append(10)
+            marker_colors.append(line_color)
+            marker_symbols.append('circle')
+        else:
+            marker_sizes.append(8)
+            marker_colors.append(line_color)
+            marker_symbols.append('circle')
+            
     fig.add_trace(go.Scatter(
         x=ticktext, y=y_comb,
         mode='lines+markers',
@@ -514,9 +545,9 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         fill='tozeroy',
         fillcolor=fill_color,
         marker=dict(
-            size=[8]*(len(y_comb) - 1) + [10],
-            color=[line_color]*(len(y_comb) - 1) + ['#ef4444'], # Make prediction point stand out in red
-            symbol=['circle']*(len(y_comb) - 1) + ['star']
+            size=marker_sizes,
+            color=marker_colors,
+            symbol=marker_symbols
         ),
         name="Tren Pertumbuhan"
     ))
@@ -534,10 +565,14 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         arrowcolor="#64748b"
     )
     
+    last_pred_age = pred_umur_list[-1]
+    last_pred_val = pred_val_list[-1]
+    last_pred_diff = int(last_pred_age - curr_umur)
+    
     fig.add_annotation(
-        x=f"{int(pred_umur_list[-1])} Bln (+{len(pred_umur_list)} Bln)",
-        y=pred_val_list[-1],
-        text=f"<b>Prediksi (+{len(pred_umur_list)} Bln)</b>",
+        x=f"{int(last_pred_age)} Bln (+{last_pred_diff} Bln)",
+        y=last_pred_val,
+        text=f"<b>Prediksi (+{last_pred_diff} Bln)</b>",
         showarrow=True,
         arrowhead=2,
         ax=0,
@@ -581,20 +616,53 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
     table_name = _pilih_tabel(table_type, sex_str)
     fig = go.Figure()
     
-    # Process history
-    if history_df is not None and len(history_df) > 0:
-        df_sorted = history_df.sort_values("umur")
-        df_hist = df_sorted[(df_sorted["umur"] <= curr_umur) & (df_sorted[val_name] > 0)].copy()
-    else:
-        df_hist = pd.DataFrame()
-        
-    if df_hist.empty:
-        df_hist = pd.DataFrame({"umur": [curr_umur], val_name: [curr_val]})
-        
-    # Combine history and prediction
-    x_comb = list(df_hist["umur"]) + pred_umur_list
-    y_comb = list(df_hist[val_name]) + pred_val_list
+    # Merge history, current, and predictions into age_map
+    age_map = {}
     
+    # 1. Collect all ages to determine the absolute range (min_age to max_age)
+    all_ages = []
+    if history_df is not None and len(history_df) > 0:
+        all_ages.extend(history_df["umur"].dropna().astype(int).tolist())
+    all_ages.append(int(curr_umur))
+    if pred_umur_list:
+        all_ages.extend([int(a) for a in pred_umur_list])
+        
+    if all_ages:
+        min_age = min(all_ages)
+        max_age = max(all_ages)
+        # Pre-populate all ages in range with 0.0 to ensure continuous alignment
+        for a in range(min_age, max_age + 1):
+            age_map[a] = (0.0, False)
+            
+    # 2. Fill in actual historical measurements
+    if history_df is not None and len(history_df) > 0:
+        for _, row in history_df.iterrows():
+            a = int(row["umur"])
+            val = float(row[val_name])
+            age_map[a] = (val, False)
+            
+    # 3. Overwrite with current measurement (possibly overridden)
+    age_map[int(curr_umur)] = (float(curr_val), False)
+    
+    # 4. Overwrite with prediction values
+    for p_age, p_val in zip(pred_umur_list, pred_val_list):
+        age_map[int(p_age)] = (float(p_val), True)
+        
+    sorted_ages = sorted(age_map.keys())
+    
+    # Filter out values <= 0 for KMS plotting to keep clinical SD grid valid and clean
+    x_comb = []
+    y_comb = []
+    for age in sorted_ages:
+        val, is_pred = age_map[age]
+        if val > 0:
+            x_comb.append(age)
+            y_comb.append(val)
+            
+    if not x_comb:
+        x_comb = [curr_umur]
+        y_comb = [curr_val]
+        
     # Define zoom bounds for age (X-axis)
     min_age = min(x_comb)
     max_age = max(x_comb)
@@ -624,13 +692,36 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
             hoverinfo='skip'
         ))
         
+    # Configure markers for KMS chart
+    marker_sizes = []
+    marker_colors = []
+    marker_symbols = []
+    for age in x_comb:
+        val, is_pred = age_map[age]
+        if is_pred:
+            marker_sizes.append(10)
+            marker_colors.append('#ef4444')
+            marker_symbols.append('star')
+        elif age == curr_umur:
+            marker_sizes.append(10)
+            marker_colors.append('#2563eb')
+            marker_symbols.append('circle')
+        else:
+            marker_sizes.append(8)
+            marker_colors.append('#2563eb')
+            marker_symbols.append('circle')
+            
     # Plot "Anak Anda" curve (history + predictions) in blue
     fig.add_trace(go.Scatter(
         x=x_comb, y=y_comb,
         mode='lines+markers',
         name="Anak Anda",
         line=dict(color="#2563eb", width=3),
-        marker=dict(size=8, color="#2563eb", symbol="circle")
+        marker=dict(
+            size=marker_sizes,
+            color=marker_colors,
+            symbol=marker_symbols
+        )
     ))
     
     title_lbl = f"Kurva Z-Score WHO: Berat Badan ({unit})" if val_name == "BB" else f"Kurva Z-Score WHO: Tinggi Badan ({unit})"
@@ -734,26 +825,33 @@ if not who_source:
 
 # ── Load data ──────────────────────────────────────────────────────────────────
 with st.spinner("Memuat data & melatih model..."):
-    # Read CSV
+    # Read CSV and calculate hash
     if isinstance(df_source, str):
         df_raw = pd.read_csv(df_source)
+        import os
+        df_hash_val = int(os.path.getmtime(df_source)) + len(df_source)
     else:
         df_raw = pd.read_csv(df_source)
+        df_hash_val = int(pd.util.hash_pandas_object(df_raw).sum())
 
-    # Read WHO
+    # Read WHO and calculate file hash
+    import hashlib
     if isinstance(who_source, str):
         who_path = who_source
-        who_tables = load_who_tables(who_path)
+        file_hash_val = str(os.path.getmtime(who_path))
+        who_tables = load_who_tables(who_path, file_hash=file_hash_val)
     else:
+        file_bytes = who_source.getvalue()
         temp_dir = os.path.join(os.getcwd(), "temp")
         os.makedirs(temp_dir, exist_ok=True)
         who_path = os.path.join(temp_dir, "tabel_who_temp.xlsx")
         with open(who_path, "wb") as f:
-            f.write(who_source.read())
-        who_tables = load_who_tables(who_path)
+            f.write(file_bytes)
+        file_hash_val = hashlib.md5(file_bytes).hexdigest()
+        who_tables = load_who_tables(who_path, file_hash=file_hash_val)
 
     try:
-        model_bb, model_tb, df_clean, df_all_history = train_models(df_raw)
+        model_bb, model_tb, df_clean, df_all_history = train_models(df_raw, df_hash_val)
         n_anak = len(df_clean["id"].unique())
         st.sidebar.success(f"✅ Model XGBoost terlatih ({n_anak} anak)")
     except Exception as e:
