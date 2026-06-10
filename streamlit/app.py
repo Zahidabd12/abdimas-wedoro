@@ -282,29 +282,33 @@ def train_models(df_raw):
     df = df.dropna(subset=["umur"])
     df["umur"] = pd.to_numeric(df["umur"], errors="coerce")
     df = df.dropna(subset=["umur"])
-    df["tanggal_timbang"] = pd.to_datetime(df["tanggal_timbang"], format="%m/%d/%Y", errors="coerce")
+    df["tanggal_timbang"] = pd.to_datetime(df["tanggal_timbang"], errors="coerce")
     df = df.sort_values(by=["id", "tanggal_timbang"])
     df = df[df["umur"] <= 60]
-    valid_id = df["id"].value_counts()
-    valid_id = valid_id[valid_id >= 5].index
-    df = df[df["id"].isin(valid_id)]
+    
     df["sex"] = df["sex"].astype(str).str.strip()
     df = df[df["sex"].isin(["1", "2"])].copy()
     df["sex"] = df["sex"].map({"1": 1, "2": 0})
     
-    # Save a copy with raw measurements for full child history
+    # Save a copy with raw measurements for full child history (keeping all IDs and all measurements, including 0s)
     df_all_history = df.copy()
-    df_all_history["BB"] = df_all_history["BB"].fillna(0.0)
-    df_all_history["TB"] = df_all_history["TB"].fillna(0.0)
+    df_all_history["BB"] = pd.to_numeric(df_all_history["BB"], errors="coerce").fillna(0.0)
+    df_all_history["TB"] = pd.to_numeric(df_all_history["TB"], errors="coerce").fillna(0.0)
     
-    df["BB"] = df["BB"].replace(0, np.nan)
-    df["TB"] = df["TB"].replace(0, np.nan)
-    df = df.dropna(subset=["BB", "TB"])
-    df["bb_diff"] = df.groupby("id")["BB"].diff().fillna(0)
-    df["tb_diff"] = df.groupby("id")["TB"].diff().fillna(0)
-    df["bb_target_1m"] = df.groupby("id")["BB"].shift(-1)
-    df["tb_target_1m"] = df.groupby("id")["TB"].shift(-1)
-    df_clean = df.dropna(subset=["bb_target_1m", "tb_target_1m"]).copy()
+    # Separate dataset for model training
+    df_train = df.copy()
+    valid_id = df_train["id"].value_counts()
+    valid_id = valid_id[valid_id >= 5].index
+    df_train = df_train[df_train["id"].isin(valid_id)]
+    
+    df_train["BB"] = df_train["BB"].replace(0, np.nan)
+    df_train["TB"] = df_train["TB"].replace(0, np.nan)
+    df_train = df_train.dropna(subset=["BB", "TB"])
+    df_train["bb_diff"] = df_train.groupby("id")["BB"].diff().fillna(0)
+    df_train["tb_diff"] = df_train.groupby("id")["TB"].diff().fillna(0)
+    df_train["bb_target_1m"] = df_train.groupby("id")["BB"].shift(-1)
+    df_train["tb_target_1m"] = df_train.groupby("id")["TB"].shift(-1)
+    df_clean = df_train.dropna(subset=["bb_target_1m", "tb_target_1m"]).copy()
 
     features = ["umur", "sex", "BB", "TB", "bb_diff", "tb_diff"]
     X = df_clean[features]
