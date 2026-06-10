@@ -1015,20 +1015,7 @@ with mc2:
 st.markdown('<div class="section-header">📈 Kurva Pertumbuhan & Outlook Pertumbuhan Anak</div>', unsafe_allow_html=True)
 
 # Add horizontal period filter at the top of the chart section
-time_range = st.radio(
-    "Filter Periode Riwayat Tren:",
-    options=["3 Bulan", "6 Bulan", "12 Bulan", "Semua"],
-    index=1, # Default to 6 Bulan as in user screenshot
-    horizontal=True
-)
-
-limit_map = {
-    "3 Bulan": 3,
-    "6 Bulan": 6,
-    "12 Bulan": 12,
-    "Semua": None
-}
-limit_val = limit_map[time_range]
+limit_val = None
 
 chart_col1, chart_col2 = st.columns(2)
 
@@ -1040,7 +1027,7 @@ with chart_col1:
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
             <div>
                 <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan {forecast_months} Bulan</h4>
-                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
+                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan riwayat data {name_str}.</div>
             </div>
             <div>
                 {badge_outlook}
@@ -1069,7 +1056,7 @@ with chart_col2:
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
             <div>
                 <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan {forecast_months} Bulan</h4>
-                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
+                <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan riwayat data {name_str}.</div>
             </div>
             <div>
                 {badge_outlook}
