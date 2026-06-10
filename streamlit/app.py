@@ -291,6 +291,12 @@ def train_models(df_raw):
     df["sex"] = df["sex"].astype(str).str.strip()
     df = df[df["sex"].isin(["1", "2"])].copy()
     df["sex"] = df["sex"].map({"1": 1, "2": 0})
+    
+    # Save a copy with raw measurements for full child history
+    df_all_history = df.copy()
+    df_all_history["BB"] = df_all_history["BB"].fillna(0.0)
+    df_all_history["TB"] = df_all_history["TB"].fillna(0.0)
+    
     df["BB"] = df["BB"].replace(0, np.nan)
     df["TB"] = df["TB"].replace(0, np.nan)
     df = df.dropna(subset=["BB", "TB"])
@@ -317,7 +323,7 @@ def train_models(df_raw):
     model_tb = XGBRegressor(n_estimators=200, learning_rate=0.05, max_depth=4, random_state=42)
     model_tb.fit(X_train, y_tb_train)
 
-    return model_bb, model_tb, df_clean
+    return model_bb, model_tb, df_clean, df_all_history
 
 # ─── Custom Styles for Premium Cards ──────────────────────────────────────────
 def make_metric_card(title, value, unit, delta, delta_color, icon_type="weight", z_score=0.0):
@@ -471,7 +477,7 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
             
     for i, p_age in enumerate(pred_umur_list):
         if i == len(pred_umur_list) - 1:
-            ticktext.append(f"{int(p_age)} Bln (+3 Bln)")
+            ticktext.append(f"{int(p_age)} Bln (+{len(pred_umur_list)} Bln)")
         else:
             ticktext.append(f"{int(p_age)} Bln (+{i+1} Bln)")
             
@@ -511,7 +517,7 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
         name="Tren Pertumbuhan"
     ))
     
-    # 3. Add text annotations for "Hari Ini" and "Prediksi (+3 Bln)" using category string coordinates
+    # 3. Add text annotations for "Hari Ini" and "Prediksi (+N Bln)" using category string coordinates
     fig.add_annotation(
         x=f"{int(curr_umur)} Bln (Sekarang)",
         y=curr_val,
@@ -525,9 +531,9 @@ def plot_growth_chart_trend(tables, table_type, sex_str, history_df, curr_umur, 
     )
     
     fig.add_annotation(
-        x=f"{int(pred_umur_list[-1])} Bln (+3 Bln)",
+        x=f"{int(pred_umur_list[-1])} Bln (+{len(pred_umur_list)} Bln)",
         y=pred_val_list[-1],
-        text="<b>Prediksi (+3 Bln)</b>",
+        text=f"<b>Prediksi (+{len(pred_umur_list)} Bln)</b>",
         showarrow=True,
         arrowhead=2,
         ax=0,
@@ -574,7 +580,7 @@ def plot_growth_chart_kms(tables, table_type, sex_str, history_df, curr_umur, cu
     # Process history
     if history_df is not None and len(history_df) > 0:
         df_sorted = history_df.sort_values("umur")
-        df_hist = df_sorted[df_sorted["umur"] <= curr_umur].copy()
+        df_hist = df_sorted[(df_sorted["umur"] <= curr_umur) & (df_sorted[val_name] > 0)].copy()
     else:
         df_hist = pd.DataFrame()
         
@@ -743,7 +749,7 @@ with st.spinner("Memuat data & melatih model..."):
         who_tables = load_who_tables(who_path)
 
     try:
-        model_bb, model_tb, df_clean = train_models(df_raw)
+        model_bb, model_tb, df_clean, df_all_history = train_models(df_raw)
         n_anak = len(df_clean["id"].unique())
         st.sidebar.success(f"✅ Model XGBoost terlatih ({n_anak} anak)")
     except Exception as e:
@@ -769,31 +775,53 @@ history_df = None
 if "Cari dari Riwayat" in mode_input:
     col_sel1, col_sel2 = st.columns([1, 2])
     with col_sel1:
-        child_ids = sorted(df_clean["id"].unique())
+        child_ids = sorted(df_all_history["id"].unique())
         selected_id = st.selectbox("Pilih ID Anak", options=child_ids)
+        forecast_months_val = st.number_input(
+            "🔮 Target Prediksi (Bulan ke Depan):",
+            min_value=1,
+            max_value=12,
+            value=1,
+            step=1,
+            key="lk_forecast_months",
+            help="Tentukan berapa bulan ke depan prediksi pertumbuhan akan dihitung."
+        )
     
     # Extract records for selected child
-    df_child = df_clean[df_clean["id"] == selected_id].sort_values("umur")
-    latest_record = df_child.iloc[-1]
+    df_child = df_all_history[df_all_history["id"] == selected_id].sort_values("umur")
     
-    if len(df_child) > 1:
-        prev_record = df_child.iloc[-2]
-        bb_prev_val = float(prev_record["BB"])
-        tb_prev_val = float(prev_record["TB"])
-        has_prev = True
+    # Use latest valid record (BB > 0 and TB > 0) to initialize defaults
+    df_child_valid = df_child[(df_child["BB"] > 0) & (df_child["TB"] > 0)].sort_values("umur")
+    if len(df_child_valid) > 0:
+        latest_record = df_child_valid.iloc[-1]
+        if len(df_child_valid) > 1:
+            prev_record = df_child_valid.iloc[-2]
+            bb_prev_val = float(prev_record["BB"])
+            tb_prev_val = float(prev_record["TB"])
+            has_prev = True
+        else:
+            bb_prev_val = float(latest_record["BB"])
+            tb_prev_val = float(latest_record["TB"])
+            has_prev = False
     else:
+        latest_record = df_child.iloc[-1]
         bb_prev_val = float(latest_record["BB"])
         tb_prev_val = float(latest_record["TB"])
         has_prev = False
         
     sex_lbl = "Laki-laki" if latest_record["sex"] == 1 else "Perempuan"
     
+    # Show the actual latest database entry in the profile display card (even if 0)
+    actual_latest = df_child.iloc[-1]
+    bb_disp = f"{actual_latest['BB']:.2f} kg" if actual_latest['BB'] > 0 else "Kosong (0)"
+    tb_disp = f"{actual_latest['TB']:.2f} cm" if actual_latest['TB'] > 0 else "Kosong (0)"
+    
     with col_sel2:
         st.markdown(f"""
         <div style="background-color: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 10px; color: #1e293b;">
             <span style="font-weight: 700; color: #1e293b; font-size: 14px;">PROFIL ANAK TERPILIH (ID: {selected_id})</span><br>
-            • Jenis Kelamin: <b>{sex_lbl}</b> | • Umur Terakhir: <b>{int(latest_record['umur'])} bulan</b><br>
-            • BB Terakhir: <b>{latest_record['BB']:.2f} kg</b> | • TB Terakhir: <b>{latest_record['TB']:.2f} cm</b>
+            • Jenis Kelamin: <b>{sex_lbl}</b> | • Umur Terakhir: <b>{int(actual_latest['umur'])} bulan</b><br>
+            • BB Terakhir: <b>{bb_disp}</b> | • TB Terakhir: <b>{tb_disp}</b>
         </div>
         """, unsafe_allow_html=True)
         
@@ -823,6 +851,15 @@ else:
         umur = st.number_input("Umur Anak (bulan)", min_value=0, max_value=60, value=24, step=1)
         sex_label = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
         sex = 1 if sex_label == "Laki-laki" else 0
+        forecast_months_val = st.number_input(
+            "🔮 Target Prediksi (Bulan ke Depan):",
+            min_value=1,
+            max_value=12,
+            value=1,
+            step=1,
+            key="mn_forecast_months",
+            help="Tentukan berapa bulan ke depan prediksi pertumbuhan akan dihitung."
+        )
         
         punya_riwayat = st.checkbox("Ada data bulan sebelumnya?", value=False)
         if punya_riwayat:
@@ -834,6 +871,9 @@ else:
         tb = st.number_input("Tinggi Badan Sekarang / TB (cm)", min_value=40.0, max_value=130.0, value=85.0, step=0.1)
 
 sex_str = "L" if sex == 1 else "P"
+
+# Resolve forecast_months variable
+forecast_months = int(st.session_state.lk_forecast_months if "Cari dari Riwayat" in mode_input else st.session_state.mn_forecast_months)
 
 # Persist analysis state and reset on profile input changes
 if "analyze_triggered" not in st.session_state:
@@ -847,7 +887,8 @@ current_input_sig = (
     bb,
     tb,
     bb_prev,
-    tb_prev
+    tb_prev,
+    forecast_months
 )
 
 if "last_input_sig" not in st.session_state:
@@ -872,74 +913,63 @@ if not st.session_state.analyze_triggered:
 # ══════════════════════════════════════════════════════════════════════════════
 name_str = f"Arka" if "Cari dari Riwayat" in mode_input and selected_id == 11 else (f"Anak ID {selected_id}" if "Cari dari Riwayat" in mode_input else "Anak Baru")
 
-# Multi-step recursive forecasting for +3 months
+# Multi-step recursive forecasting
 bb_pred_list = []
 tb_pred_list = []
 umur_pred_list = []
 
-# Bulan +1
-sample_1 = prepare_input(umur, sex, bb, tb, bb_prev, tb_prev)
-bb_p1 = float(model_bb.predict(sample_1)[0])
-tb_p1 = float(model_tb.predict(sample_1)[0])
-bb_pred_list.append(bb_p1)
-tb_pred_list.append(tb_p1)
-umur_pred_list.append(umur + 1)
+curr_u = umur
+curr_b = bb
+curr_t = tb
+prev_b = bb_prev if bb_prev is not None else bb
+prev_t = tb_prev if tb_prev is not None else tb
 
-# Bulan +2
-sample_2 = prepare_input(umur + 1, sex, bb_p1, tb_p1, bb, tb)
-bb_p2 = float(model_bb.predict(sample_2)[0])
-tb_p2 = float(model_tb.predict(sample_2)[0])
-bb_pred_list.append(bb_p2)
-tb_pred_list.append(tb_p2)
-umur_pred_list.append(umur + 2)
+for step in range(1, forecast_months + 1):
+    sample = prepare_input(curr_u, sex, curr_b, curr_t, prev_b, prev_t)
+    b_pred = float(model_bb.predict(sample)[0])
+    t_pred = float(model_tb.predict(sample)[0])
+    
+    bb_pred_list.append(b_pred)
+    tb_pred_list.append(t_pred)
+    umur_pred_list.append(curr_u + 1)
+    
+    # Update variables for next step
+    prev_b = curr_b
+    prev_t = curr_t
+    curr_b = b_pred
+    curr_t = t_pred
+    curr_u = curr_u + 1
 
-# Bulan +3
-sample_3 = prepare_input(umur + 2, sex, bb_p2, tb_p2, bb_p1, tb_p1)
-bb_p3 = float(model_bb.predict(sample_3)[0])
-tb_p3 = float(model_tb.predict(sample_3)[0])
-bb_pred_list.append(bb_p3)
-tb_pred_list.append(tb_p3)
-umur_pred_list.append(umur + 3)
-
-# For compatibility and single-month references
-bb_pred = bb_p1
-tb_pred = tb_p1
-umur_pred = umur + 1
+# Target values at the end of forecast horizon
+bb_pred_target = bb_pred_list[-1]
+tb_pred_target = tb_pred_list[-1]
+umur_pred_target = umur_pred_list[-1]
 
 # Z-score saat ini
 z_bbu_s  = zscore_BB_U(who_tables, bb, umur, sex_str)
 z_tbu_s  = zscore_TB_U(who_tables, tb, umur, sex_str)
 z_bbtb_s = zscore_BB_TB(who_tables, bb, tb, umur, sex_str)
 
-# Z-score prediksi +1 bulan (for tables)
-z_bbu_p  = zscore_BB_U(who_tables, bb_pred, umur_pred, sex_str)
-z_tbu_p  = zscore_TB_U(who_tables, tb_pred, umur_pred, sex_str)
-z_bbtb_p = zscore_BB_TB(who_tables, bb_pred, tb_pred, umur_pred, sex_str)
-
-# Z-score prediksi +3 bulan (for metric cards)
-z_bbu_p3  = zscore_BB_U(who_tables, bb_p3, umur + 3, sex_str)
-z_tbu_p3  = zscore_TB_U(who_tables, tb_p3, umur + 3, sex_str)
+# Z-score prediksi target bulan (for tables and metric cards)
+z_bbu_p  = zscore_BB_U(who_tables, bb_pred_target, umur_pred_target, sex_str)
+z_tbu_p  = zscore_TB_U(who_tables, tb_pred_target, umur_pred_target, sex_str)
+z_bbtb_p = zscore_BB_TB(who_tables, bb_pred_target, tb_pred_target, umur_pred_target, sex_str)
 
 # Status gizi saat ini
 st_bbu_s,  cl_bbu_s  = status_BB_U(z_bbu_s)
 st_tbu_s,  cl_tbu_s  = status_TB_U(z_tbu_s)
 st_bbtb_s, cl_bbtb_s = status_BB_TB(z_bbtb_s)
 
-# Status gizi prediksi +1 bulan
+# Status gizi prediksi target bulan
 st_bbu_p,  cl_bbu_p  = status_BB_U(z_bbu_p)
 st_tbu_p,  cl_tbu_p  = status_TB_U(z_tbu_p)
 st_bbtb_p, cl_bbtb_p = status_BB_TB(z_bbtb_p)
 
-# Status gizi prediksi +3 bulan
-st_bbu_p3,  cl_bbu_p3  = status_BB_U(z_bbu_p3)
-st_tbu_p3,  cl_tbu_p3  = status_TB_U(z_tbu_p3)
-st_bbtb_p3, cl_bbtb_p3 = status_BB_TB(zscore_BB_TB(who_tables, bb_p3, tb_p3, umur + 3, sex_str))
-
 # Dynamically determine the badge for outlook
-if cl_bbu_p3 == "danger" or cl_tbu_p3 == "danger" or cl_bbtb_p3 == "danger":
+if cl_bbu_p == "danger" or cl_tbu_p == "danger" or cl_bbtb_p == "danger":
     badge_style = "danger"
     badge_text = "RISIKO TINGGI"
-elif cl_bbu_p3 == "warning" or cl_tbu_p3 == "warning" or cl_bbtb_p3 == "warning":
+elif cl_bbu_p == "warning" or cl_tbu_p == "warning" or cl_bbtb_p == "warning":
     badge_style = "warning"
     badge_text = "PERINGATAN"
 else:
@@ -950,35 +980,35 @@ badge_outlook = badge(badge_text, badge_style)
 # ══════════════════════════════════════════════════════════════════════════════
 # HASIL — Metric cards
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">📊 Hasil Pengukuran & Prediksi Target +3 Bulan</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="section-header">📊 Hasil Pengukuran & Prediksi Target +{forecast_months} Bulan</div>', unsafe_allow_html=True)
 
 mc1, mc2 = st.columns(2)
 with mc1:
-    delta_bb = bb_p3 - bb
+    delta_bb = bb_pred_target - bb
     c_bb = "green" if delta_bb > 0 else ("red" if delta_bb < 0 else "neutral")
     delta_sign = "+" if delta_bb > 0 else ""
     st.markdown(make_metric_card(
-        title="Prediksi Berat Badan",
-        value=f"{bb_p3:.1f}",
+        title=f"Prediksi Berat Badan (+{forecast_months} Bln)",
+        value=f"{bb_pred_target:.1f}",
         unit="Kg",
         delta=f"{delta_sign}{delta_bb:.1f} Kg",
         delta_color=c_bb,
         icon_type="weight",
-        z_score=z_bbu_p3
+        z_score=z_bbu_p
     ), unsafe_allow_html=True)
 
 with mc2:
-    delta_tb = tb_p3 - tb
+    delta_tb = tb_pred_target - tb
     c_tb = "green" if delta_tb > 0 else ("red" if delta_tb < 0 else "neutral")
     delta_sign = "+" if delta_tb > 0 else ""
     st.markdown(make_metric_card(
-        title="Prediksi Tinggi Badan",
-        value=f"{tb_p3:.1f}",
+        title=f"Prediksi Tinggi Badan (+{forecast_months} Bln)",
+        value=f"{tb_pred_target:.1f}",
         unit="Cm",
         delta=f"{delta_sign}{delta_tb:.1f} Cm",
         delta_color=c_tb,
         icon_type="height",
-        z_score=z_tbu_p3
+        z_score=z_tbu_p
     ), unsafe_allow_html=True)
 
 # ── Visualisasi Kurva Pertumbuhan ──────────────────────────────────────────────
@@ -1009,7 +1039,7 @@ with chart_col1:
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
             <div>
-                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan 3 Bulan</h4>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan {forecast_months} Bulan</h4>
                 <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
             </div>
             <div>
@@ -1038,7 +1068,7 @@ with chart_col2:
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px;">
             <div>
-                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan 3 Bulan</h4>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Outlook Pertumbuhan {forecast_months} Bulan</h4>
                 <div style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Estimasi berdasarkan tren data {time_range.lower()} terakhir {name_str}.</div>
             </div>
             <div>
@@ -1069,8 +1099,8 @@ table_data = {
     "Indikator": ["BB/U (Berat Badan / Umur)", "TB/U (Tinggi Badan / Umur)", "BB/TB (Berat / Tinggi)"],
     "Z-Score Sekarang": [z_fmt(z_bbu_s), z_fmt(z_tbu_s), z_fmt(z_bbtb_s)],
     "Status Sekarang":  [st_bbu_s, st_tbu_s, st_bbtb_s],
-    "Z-Score +1 Bulan": [z_fmt(z_bbu_p), z_fmt(z_tbu_p), z_fmt(z_bbtb_p)],
-    "Status +1 Bulan":  [st_bbu_p, st_tbu_p, st_bbtb_p],
+    f"Z-Score +{forecast_months} Bulan": [z_fmt(z_bbu_p), z_fmt(z_tbu_p), z_fmt(z_bbtb_p)],
+    f"Status +{forecast_months} Bulan":  [st_bbu_p, st_tbu_p, st_bbtb_p],
 }
 
 df_tabel = pd.DataFrame(table_data)
@@ -1088,7 +1118,7 @@ for i in range(3):
         <td style="font-weight:600;padding:14px;text-align:left;">{df_tabel['Indikator'][i]}</td>
         <td style="padding:14px;">{df_tabel['Z-Score Sekarang'][i]}</td>
         <td style="padding:14px;">{badge(status_cols_now[i], class_now[i])}</td>
-        <td style="padding:14px;">{df_tabel['Z-Score +1 Bulan'][i]}</td>
+        <td style="padding:14px;">{df_tabel[f'Z-Score +{forecast_months} Bulan'][i]}</td>
         <td style="padding:14px;">{badge(status_cols_pred[i], class_pred[i])}</td>
     </tr>"""
 
@@ -1099,8 +1129,8 @@ html_table = f"""
       <th style="text-align:left;">Indikator Pertumbuhan</th>
       <th>Z-Score Sekarang</th>
       <th>Status Sekarang</th>
-      <th>Z-Score +1 Bulan</th>
-      <th>Status +1 Bulan</th>
+      <th>Z-Score +{forecast_months} Bulan</th>
+      <th>Status +{forecast_months} Bulan</th>
     </tr>
   </thead>
   <tbody>{rows_html}</tbody>
