@@ -777,7 +777,7 @@ if "Cari dari Riwayat" in mode_input:
     with col_sel1:
         child_ids = sorted(df_all_history["id"].unique())
         selected_id = st.selectbox("Pilih ID Anak", options=child_ids)
-        forecast_months_val = st.number_input(
+        forecast_months = st.number_input(
             "🔮 Target Prediksi (Bulan ke Depan):",
             min_value=1,
             max_value=12,
@@ -851,7 +851,7 @@ else:
         umur = st.number_input("Umur Anak (bulan)", min_value=0, max_value=60, value=24, step=1)
         sex_label = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
         sex = 1 if sex_label == "Laki-laki" else 0
-        forecast_months_val = st.number_input(
+        forecast_months = st.number_input(
             "🔮 Target Prediksi (Bulan ke Depan):",
             min_value=1,
             max_value=12,
@@ -871,9 +871,6 @@ else:
         tb = st.number_input("Tinggi Badan Sekarang / TB (cm)", min_value=40.0, max_value=130.0, value=85.0, step=0.1)
 
 sex_str = "L" if sex == 1 else "P"
-
-# Resolve forecast_months variable
-forecast_months = int(st.session_state.lk_forecast_months if "Cari dari Riwayat" in mode_input else st.session_state.mn_forecast_months)
 
 # Persist analysis state and reset on profile input changes
 if "analyze_triggered" not in st.session_state:
