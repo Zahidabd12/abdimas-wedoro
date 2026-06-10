@@ -841,13 +841,13 @@ if "Cari dari Riwayat" in mode_input:
     with st.expander("⚙️ Sesuaikan/Update Pengukuran Terakhir (Opsional)"):
         col_ovr1, col_ovr2 = st.columns(2)
         with col_ovr1:
-            umur = st.number_input("Umur Terakhir (bulan)", min_value=0, max_value=60, value=umur, key="lk_umur")
-            bb = st.number_input("Berat Badan / BB Terakhir (kg)", min_value=1.0, max_value=40.0, value=bb, key="lk_bb")
+            umur = st.number_input("Umur Terakhir (bulan)", min_value=0, max_value=60, value=umur, key=f"lk_umur_{selected_id}")
+            bb = st.number_input("Berat Badan / BB Terakhir (kg)", min_value=1.0, max_value=40.0, value=bb, key=f"lk_bb_{selected_id}")
         with col_ovr2:
-            tb = st.number_input("Tinggi Badan / TB Terakhir (cm)", min_value=40.0, max_value=130.0, value=tb, key="lk_tb")
+            tb = st.number_input("Tinggi Badan / TB Terakhir (cm)", min_value=40.0, max_value=130.0, value=tb, key=f"lk_tb_{selected_id}")
             if has_prev:
-                bb_prev = st.number_input("BB Bulan Sebelumnya (kg)", min_value=1.0, max_value=40.0, value=bb_prev, key="lk_bb_prev")
-                tb_prev = st.number_input("TB Bulan Sebelumnya (cm)", min_value=40.0, max_value=130.0, value=tb_prev, key="lk_tb_prev")
+                bb_prev = st.number_input("BB Bulan Sebelumnya (kg)", min_value=1.0, max_value=40.0, value=bb_prev, key=f"lk_bb_prev_{selected_id}")
+                tb_prev = st.number_input("TB Bulan Sebelumnya (cm)", min_value=40.0, max_value=130.0, value=tb_prev, key=f"lk_tb_prev_{selected_id}")
 
 else:
     col_man1, col_man2 = st.columns(2)
